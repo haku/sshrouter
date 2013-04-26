@@ -11,10 +11,20 @@ How do I use it?
 
 TODO SSH integration.
 
-Make a HTTP request and get an IP back if query only matched one instance.
 See [Amazon's docs for full filter API](http://docs.amazonwebservices.com/AWSEC2/latest/APIReference/index.html?ApiReference-query-DescribeInstances.html).
+
+Example SSH config (assumes ec2router script is on PATH):
 ```
-curl 'http://127.0.0.1:47782/ip?instance-state-name=running&tag:Name=*My%20Cloud%20App*'
+Host aws_bastion
+  Hostname 123.456.789.123
+  User smith01
+  IdentityFile ~/.ssh/aws.pem
+
+Host aws-*
+  User ec2-user
+
+Host aws-app
+  ProxyCommand ec2router aws_bastion 'tag:Name=*My%%20Cloud%%20App*'
 ```
 
 How can I compile it?

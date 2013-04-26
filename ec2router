@@ -1,0 +1,9 @@
+#!/bin/bash
+set -eu
+
+url="http://127.0.0.1:47782/ip?instance-state-name=running&${2}"
+#echo>&2 "  => $url"
+ip="$(curl -sf "$url")"
+port="22"
+echo>&2 "  => ${ip}:${port}"
+ssh "$1" "nc -w 120 $ip $port"
