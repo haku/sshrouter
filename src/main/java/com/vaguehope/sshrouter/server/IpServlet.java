@@ -57,7 +57,7 @@ public class IpServlet extends HttpServlet {
 		LOG.debug("Filters: {}", filters);
 
 		final DescribeInstancesResult instancesResult = this.desInstCache.getUnchecked(filters); // FIXME lazy exception handling.
-		if (instancesResult == null) {
+		if (instancesResult == DescribeInstances.NULL) {
 			resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
 			resp.getWriter().println("Invalid filter: " + filters);
 			return;
@@ -85,6 +85,8 @@ public class IpServlet extends HttpServlet {
 
 	private static class DescribeInstances extends CacheLoader<List<Filter>, DescribeInstancesResult> {
 
+	    public static final DescribeInstancesResult NULL = new DescribeInstancesResult();
+
         private final AmazonEC2 ec2;
 
         public DescribeInstances(final AmazonEC2 ec2) {
@@ -98,7 +100,7 @@ public class IpServlet extends HttpServlet {
             }
             catch (final AmazonServiceException e) {
                 LOG.warn("Invalid filter: {}", filters);
-                return null;
+                return NULL;
             }
         }
 
