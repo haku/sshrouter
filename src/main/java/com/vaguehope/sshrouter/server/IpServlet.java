@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.amazonaws.AmazonServiceException;
+import com.amazonaws.ClientConfiguration;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2Client;
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
@@ -23,6 +24,7 @@ import com.amazonaws.services.ec2.model.Filter;
 import com.amazonaws.services.ec2.model.Instance;
 import com.amazonaws.services.ec2.model.InstanceNetworkInterface;
 import com.amazonaws.services.ec2.model.Reservation;
+import com.vaguehope.sshrouter.Main;
 
 public class IpServlet extends HttpServlet {
 
@@ -31,8 +33,10 @@ public class IpServlet extends HttpServlet {
 
 	private final AmazonEC2 ec2;
 
-	public IpServlet () {
-		this.ec2 = new AmazonEC2Client();
+	public IpServlet () throws IOException {
+		final ClientConfiguration clientConfiguration = new ClientConfiguration();
+		Main.findProxy(clientConfiguration);
+		this.ec2 = new AmazonEC2Client(clientConfiguration);
 		this.ec2.setEndpoint("ec2.eu-west-1.amazonaws.com");
 	}
 

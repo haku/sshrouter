@@ -1,6 +1,9 @@
 package com.vaguehope.sshrouter;
 
+import java.io.IOException;
 import java.io.PrintStream;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Arrays;
 
 import org.eclipse.jetty.server.Handler;
@@ -14,6 +17,7 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.amazonaws.ClientConfiguration;
 import com.vaguehope.sshrouter.server.IpServlet;
 
 public final class Main {
@@ -50,7 +54,7 @@ public final class Main {
 		server.join(); // Keep app alive.
 	}
 
-	private static Server makeServer () {
+	private static Server makeServer () throws IOException {
 		final ServletContextHandler servletHandler = new ServletContextHandler();
 		servletHandler.setContextPath("/");
 		servletHandler.addServlet(new ServletHolder(new IpServlet()), "/ip");
@@ -70,6 +74,24 @@ public final class Main {
 		connector.setPort(port);
 		connector.setHost("127.0.0.1");
 		return connector;
+	}
+
+	public static void findProxy (final ClientConfiguration clientConfiguration) throws MalformedURLException {
+		String[] envVars = { "https_proxy", "http_proxy" };
+		for (String var : envVars) {
+			String proxy;
+			if ((proxy = System.getenv(var)) != null) {
+				setProxy(clientConfiguration, proxy);
+				return;
+			}
+		}
+	}
+
+	private static void setProxy (final ClientConfiguration clientConfiguration, final String proxy) throws MalformedURLException {
+		String p = proxy.startsWith("http") ? proxy : "http://" + proxy;
+		URL u = new URL(p);
+		clientConfiguration.setProxyHost(u.getHost());
+		clientConfiguration.setProxyPort(u.getPort());
 	}
 
 	private static void help (final CmdLineParser parser, final PrintStream ps) {
