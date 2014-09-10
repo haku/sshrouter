@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.concurrent.TimeUnit;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -24,6 +25,9 @@ import com.amazonaws.services.ec2.model.Filter;
 import com.amazonaws.services.ec2.model.Instance;
 import com.amazonaws.services.ec2.model.InstanceNetworkInterface;
 import com.amazonaws.services.ec2.model.Reservation;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.vaguehope.sshrouter.Main;
 
 public class IpServlet extends HttpServlet {
@@ -32,12 +36,16 @@ public class IpServlet extends HttpServlet {
 	private static final long serialVersionUID = -2826730502711068672L;
 
 	private final AmazonEC2 ec2;
+	private final LoadingCache<List<Filter>, DescribeInstancesResult> desInstCache;
 
 	public IpServlet () throws IOException {
 		final ClientConfiguration clientConfiguration = new ClientConfiguration();
 		Main.findProxy(clientConfiguration);
 		this.ec2 = new AmazonEC2Client(clientConfiguration);
 		this.ec2.setEndpoint("ec2.eu-west-1.amazonaws.com");
+		this.desInstCache = CacheBuilder.newBuilder()
+	            .expireAfterWrite(5, TimeUnit.MINUTES)
+	            .build(new DescribeInstances(this.ec2));
 	}
 
 	@Override
@@ -48,12 +56,8 @@ public class IpServlet extends HttpServlet {
 		}
 		LOG.debug("Filters: {}", filters);
 
-		DescribeInstancesResult instancesResult;
-		try {
-			instancesResult = this.ec2.describeInstances(new DescribeInstancesRequest().withFilters(filters));
-		}
-		catch (AmazonServiceException e) {
-			LOG.info("Invalid filter: {}", filters);
+		final DescribeInstancesResult instancesResult = this.desInstCache.getUnchecked(filters); // FIXME lazy exception handling.
+		if (instancesResult == null) {
 			resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
 			resp.getWriter().println("Invalid filter: " + filters);
 			return;
@@ -77,6 +81,27 @@ public class IpServlet extends HttpServlet {
 			resp.setStatus(HttpServletResponse.SC_NOT_FOUND);
 			resp.getWriter().println("No matches: " + filters);
 		}
+	}
+
+	private static class DescribeInstances extends CacheLoader<List<Filter>, DescribeInstancesResult> {
+
+        private final AmazonEC2 ec2;
+
+        public DescribeInstances(final AmazonEC2 ec2) {
+            this.ec2 = ec2;
+        }
+
+        @Override
+        public DescribeInstancesResult load(final List<Filter> filters) throws Exception {
+            try {
+                return this.ec2.describeInstances(new DescribeInstancesRequest().withFilters(filters));
+            }
+            catch (final AmazonServiceException e) {
+                LOG.warn("Invalid filter: {}", filters);
+                return null;
+            }
+        }
+
 	}
 
 	private static List<Instance> allInstances (final DescribeInstancesResult instances) {
